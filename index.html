@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CUI GPA Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-900 text-gray-300 min-h-screen flex flex-col items-center p-4 sm:p-6">
+
+    <div class="w-full max-w-4xl">
+        <!-- Header and Mode Toggle -->
+        <header class="flex flex-col sm:flex-row justify-between items-center mb-6">
+            <h1 class="text-2xl sm:text-3xl font-bold text-white mb-4 sm:mb-0">CUI GPA Calculator</h1>
+            <div class="flex bg-gray-800 rounded-lg p-1">
+                <button id="singleCourseBtn" class="toggle-btn active px-4 py-2 text-sm font-semibold rounded-md">Single Course GPA</button>
+                <button id="multiCourseBtn" class="toggle-btn px-4 py-2 text-sm font-semibold rounded-md">Multi-Course GPA</button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main>
+            <!-- Single Course GPA Calculator -->
+            <div id="singleCourseCalculator">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Left Column: Inputs -->
+                    <div class="space-y-6">
+                        <!-- Course Setup Card -->
+                        <div class="bg-gray-800 p-6 rounded-2xl shadow-lg">
+                            <h2 class="text-xl font-semibold text-white mb-4 border-b border-gray-700 pb-2">1. Course Setup</h2>
+                            <div class="space-y-4">
+                                <div>
+                                    <label for="subjectName" class="block text-sm font-medium mb-1">Subject Name</label>
+                                    <input type="text" id="subjectName" class="form-input w-full rounded-md" placeholder="e.g., Programming Fundamentals">
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="creditHours" class="block text-sm font-medium mb-1">Credit Hours</label>
+                                        <select id="creditHours" class="form-select w-full rounded-md">
+                                            <option>3</option>
+                                            <option>4</option>
+                                            <option>2</option>
+                                            <option>1</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Has Lab?</label>
+                                        <div class="flex bg-gray-700 rounded-lg p-1">
+                                            <button id="hasLabYes" class="toggle-btn flex-1 py-1 rounded-md text-sm">Yes</button>
+                                            <button id="hasLabNo" class="toggle-btn active flex-1 py-1 rounded-md text-sm">No</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="theoryWeightageContainer" class="hidden">
+                                    <label for="theoryWeightage" class="block text-sm font-medium mb-1">Theory Weightage %</label>
+                                    <input type="number" id="theoryWeightage" class="form-input w-full rounded-md" placeholder="e.g., 70" min="1" max="99">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Final Mode Switch Card -->
+                        <div class="bg-gray-800 p-6 rounded-2xl shadow-lg">
+                             <h2 class="text-xl font-semibold text-white mb-4 border-b border-gray-700 pb-2">2. Final Marks Mode</h2>
+                             <div class="flex bg-gray-700 rounded-lg p-1">
+                                <button id="finalsAvailableYes" class="toggle-btn active flex-1 py-2 rounded-md text-sm">Final Marks Available</button>
+                                <button id="finalsAvailableNo" class="toggle-btn flex-1 py-2 rounded-md text-sm">Estimate GPA</button>
+                            </div>
+                            <div id="gpaEstimationContainer" class="hidden mt-4 space-y-4">
+                                <div>
+                                    <label for="targetGpa" class="block text-sm font-medium mb-1">Target GPA</label>
+                                    <input type="number" id="targetGpa" class="form-input w-full rounded-md" placeholder="e.g., 3.66" step="0.01">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Assessments Card -->
+                        <div class="bg-gray-800 p-6 rounded-2xl shadow-lg">
+                            <h2 class="text-xl font-semibold text-white mb-4 border-b border-gray-700 pb-2">3. Assessment Marks</h2>
+                            <div class="space-y-4">
+                                <!-- Theory Assessments -->
+                                <div id="theoryAssessments">
+                                    <h3 class="font-semibold text-lg mb-2 text-blue-400">Theory</h3>
+                                    <div class="space-y-3 pl-2 border-l-2 border-blue-500">
+                                        <div id="quizzesContainer"></div>
+                                        <div id="assignmentsContainer"></div>
+                                        <div id="midtermContainer"></div>
+                                        <div id="theoryFinalContainer"></div>
+                                    </div>
+                                </div>
+                                <!-- Lab Assessments -->
+                                <div id="labAssessments" class="hidden mt-4">
+                                    <h3 class="font-semibold text-lg mb-2 text-green-400">Lab</h3>
+                                    <div class="space-y-3 pl-2 border-l-2 border-green-500">
+                                        <div id="labAssignmentsContainer"></div>
+                                        <div id="labMidtermContainer"></div>
+                                        <div id="labFinalContainer"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                         <button id="calculateBtn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition duration-300 text-lg">Calculate GPA</button>
+                    </div>
+
+                    <!-- Right Column: Output -->
+                    <div class="bg-gray-800 p-6 rounded-2xl shadow-lg h-fit">
+                        <h2 class="text-xl font-semibold text-white mb-4 border-b border-gray-700 pb-2">Result</h2>
+                        <div id="outputContainer" class="space-y-4">
+                           <p class="text-gray-500 text-center py-10">Enter your marks to see the result.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Multi-Course GPA Calculator -->
+            <div id="multiCourseCalculator" class="hidden">
+                 <div class="bg-gray-800 p-6 rounded-2xl shadow-lg">
+                    <div id="multiCourseList" class="space-y-4">
+                        <!-- Course Entry 1 -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center p-3 bg-gray-700/50 rounded-lg">
+                            <input type="text" class="form-input rounded-md col-span-1 sm:col-span-1" placeholder="Course Name">
+                            <select class="form-select rounded-md col-span-1 sm:col-span-1">
+                                <option value="1">1 Credit Hour</option>
+                                <option value="2">2 Credit Hours</option>
+                                <option value="3" selected>3 Credit Hours</option>
+                                <option value="4">4 Credit Hours</option>
+                            </select>
+                            <input type="number" step="0.01" class="form-input rounded-md col-span-1 sm:col-span-1" placeholder="GPA Earned (e.g. 3.33)">
+                        </div>
+                         <!-- Course Entry 2 -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center p-3 bg-gray-700/50 rounded-lg">
+                            <input type="text" class="form-input rounded-md col-span-1 sm:col-span-1" placeholder="Course Name">
+                            <select class="form-select rounded-md col-span-1 sm:col-span-1">
+                                <option value="1">1 Credit Hour</option>
+                                <option value="2">2 Credit Hours</option>
+                                <option value="3" selected>3 Credit Hours</option>
+                                <option value="4">4 Credit Hours</option>
+                            </select>
+                            <input type="number" step="0.01" class="form-input rounded-md col-span-1 sm:col-span-1" placeholder="GPA Earned (e.g. 3.33)">
+                        </div>
+                    </div>
+                    <div class="flex justify-between mt-6">
+                        <button id="addCourseBtn" class="bg-green-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-green-700 transition">Add Another Course</button>
+                        <button id="calculateMultiBtn" class="bg-blue-600 text-white font-bold px-6 py-2 rounded-lg hover:bg-blue-700 transition">Calculate Overall GPA</button>
+                    </div>
+                    <div id="multiOutputContainer" class="mt-6 text-center"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+<script src="main.js"></script>
+</body>
+</html>
