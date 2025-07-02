@@ -233,9 +233,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Helper: Generate at least three valid combinations of theory/lab marks to reach the required GPA
         function getTheoryLabCombinations(finalsNeeded, theoryFinalWeightAbs, labFinalWeightAbs, theoryFinalTotal, labFinalTotal) {
-            // The equation is: theoryFinalWeightAbs * t + labFinalWeightAbs * l = finalsNeeded
-            // t and l are percentages (0-100)
-            // We'll try three scenarios: (1) equal, (2) theory high/lab low, (3) lab high/theory low
+            // Always use 50 as total if not provided
+            theoryFinalTotal = theoryFinalTotal || 50;
+            labFinalTotal = labFinalTotal || 50;
             let combos = [];
             let totalFinalWeightAbs = theoryFinalWeightAbs + labFinalWeightAbs;
             // 1. Equal split
@@ -264,8 +264,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return combos.map(c => ({
                 theoryPerc: c.theoryPerc.toFixed(2),
                 labPerc: c.labPerc.toFixed(2),
-                theoryMarks: theoryFinalTotal ? (c.theoryPerc / 100 * theoryFinalTotal).toFixed(2) : '?',
-                labMarks: labFinalTotal ? (c.labPerc / 100 * labFinalTotal).toFixed(2) : '?'
+                theoryMarks: (c.theoryPerc / 100 * theoryFinalTotal).toFixed(2),
+                labMarks: (c.labPerc / 100 * labFinalTotal).toFixed(2)
             }));
         }
 
