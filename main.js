@@ -131,12 +131,21 @@ document.addEventListener('DOMContentLoaded', () => {
         finalsAvailableYes.addEventListener('click', () => { state.finalsAvailable = true; updateFinalsModeUI(); });
         finalsAvailableNo.addEventListener('click', () => { state.finalsAvailable = false; updateFinalsModeUI(); });
         
+        // Scroll to result after calculation
+        function scrollToResult() {
+            const resultDiv = document.getElementById('outputContainer');
+            if (resultDiv) {
+                resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
         calculateBtn.addEventListener('click', () => {
             if (state.finalsAvailable) {
                 calculatePostFinalsGPA();
             } else {
                 calculatePreFinalsEstimation();
             }
+            scrollToResult();
         });
         
         // --- Calculation Logic ---
@@ -213,46 +222,89 @@ document.addEventListener('DOMContentLoaded', () => {
             renderPassOutput(overallPercentage, result.grade, result.gpa);
         };
 
+        // Helper: Find the minimum percentage required for a target GPA (floor, not ceiling)
+        function getMinRequiredPercentage(targetGpa) {
+            const sorted = [...GPA_SCALE].sort((a, b) => b.gpa - a.gpa);
+            for (const s of sorted) {
+                if (targetGpa >= s.gpa) return s.min;
+            }
+            return 101; // Impossible
+        }
+
+        // Helper: Generate at least three valid combinations of theory/lab marks to reach the required GPA
+        function getTheoryLabCombinations(finalsNeeded, theoryFinalWeightAbs, labFinalWeightAbs, theoryFinalTotal, labFinalTotal) {
+            // The equation is: theoryFinalWeightAbs * t + labFinalWeightAbs * l = finalsNeeded
+            // t and l are percentages (0-100)
+            // We'll try three scenarios: (1) equal, (2) theory high/lab low, (3) lab high/theory low
+            let combos = [];
+            let totalFinalWeightAbs = theoryFinalWeightAbs + labFinalWeightAbs;
+            // 1. Equal split
+            let t1 = finalsNeeded / totalFinalWeightAbs * 100;
+            combos.push({
+                theoryPerc: t1,
+                labPerc: t1
+            });
+            // 2. Theory high, lab low
+            let t2 = Math.min(100, t1 + 10);
+            let l2 = (finalsNeeded - theoryFinalWeightAbs * t2 / 100) / labFinalWeightAbs * 100;
+            combos.push({
+                theoryPerc: t2,
+                labPerc: l2
+            });
+            // 3. Lab high, theory low
+            let l3 = Math.min(100, t1 + 10);
+            let t3 = (finalsNeeded - labFinalWeightAbs * l3 / 100) / theoryFinalWeightAbs * 100;
+            combos.push({
+                theoryPerc: t3,
+                labPerc: l3
+            });
+            // Filter out impossible combos (over 100% or under 0%)
+            return combos.filter(c => c.theoryPerc >= 0 && c.theoryPerc <= 100 && c.labPerc >= 0 && c.labPerc <= 100)
+                .map(c => ({
+                    theoryPerc: c.theoryPerc.toFixed(2),
+                    labPerc: c.labPerc.toFixed(2),
+                    theoryMarks: theoryFinalTotal ? (c.theoryPerc / 100 * theoryFinalTotal).toFixed(2) : '?',
+                    labMarks: labFinalTotal ? (c.labPerc / 100 * labFinalTotal).toFixed(2) : '?'
+                }));
+        }
+
         const calculatePreFinalsEstimation = () => {
             const targetGpa = parseFloat(document.getElementById('targetGpa').value) || 0;
-            const minReqPerc = GPA_SCALE.find(s => s.gpa >= targetGpa)?.min || (targetGpa > 4 ? 101 : 0);
-            
+            const minReqPerc = getMinRequiredPercentage(targetGpa);
             if(minReqPerc > 100) {
                 renderFailOutput(`Target GPA of ${targetGpa.toFixed(2)} is not possible.`);
                 return;
             }
-
             const theoryW = state.hasLab ? (parseFloat(document.getElementById('theoryWeightage').value) || 70) / 100 : 1;
             const labW = state.hasLab ? 1 - theoryW : 0;
-
             const quizP = getAssessmentPercentage('quizzes');
             const assignP = getAssessmentPercentage('assignments');
             const midP = getExamPercentage('midterm');
-
             const internalTheoryContribution = (quizP * WEIGHTAGES.THEORY.quizzes) + (assignP * WEIGHTAGES.THEORY.assignments) + (midP * WEIGHTAGES.THEORY.mid);
-            
             let internalLabContribution = 0;
             if (state.hasLab) {
                 const labAssignP = getAssessmentPercentage('labAssignments');
                 const labMidP = getExamPercentage('labMidterm');
                 internalLabContribution = (labAssignP * WEIGHTAGES.LAB.assignments) + (labMidP * WEIGHTAGES.LAB.mid);
             }
-            
             const currentOverallMarks = (internalTheoryContribution * theoryW) + (internalLabContribution * labW);
             const marksNeededFromFinals = minReqPerc - currentOverallMarks;
-
             if (marksNeededFromFinals <= 0) {
                 renderEstimationOutput(0, 0, currentOverallMarks, targetGpa);
                 return;
             }
-
             const theoryFinalWeightAbs = WEIGHTAGES.THEORY.final * theoryW;
             const labFinalWeightAbs = state.hasLab ? WEIGHTAGES.LAB.final * labW : 0;
             const totalFinalWeightAbs = theoryFinalWeightAbs + labFinalWeightAbs;
-            
             const requiredPercInEachFinal = marksNeededFromFinals / totalFinalWeightAbs;
-            
-            renderEstimationOutput(requiredPercInEachFinal, requiredPercInEachFinal, currentOverallMarks, targetGpa);
+            // Pass combos to renderEstimationOutput
+            let combos = [];
+            if (state.hasLab) {
+                const theoryFinalTotal = parseFloat(document.getElementById('theoryFinalTotal')?.value) || 0;
+                const labFinalTotal = parseFloat(document.getElementById('labFinalTotal')?.value) || 0;
+                combos = getTheoryLabCombinations(marksNeededFromFinals, theoryFinalWeightAbs, labFinalWeightAbs, theoryFinalTotal, labFinalTotal);
+            }
+            renderEstimationOutput(requiredPercInEachFinal, requiredPercInEachFinal, currentOverallMarks, targetGpa, combos);
         };
 
         // --- Rendering Functions ---
@@ -276,63 +328,27 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         };
 
-        const renderEstimationOutput = (reqTheory, reqLab, current, targetGpa) => {
+        const renderEstimationOutput = (reqTheory, reqLab, current, targetGpa, combos=[]) => {
             let warning = '';
             if (reqTheory > 100 || (state.hasLab && reqLab > 100)) {
                 warning = `<div class="mt-4 p-3 bg-yellow-900/50 border border-yellow-700 rounded-lg text-yellow-300 text-sm">
                     <span class="font-bold">Warning:</span> Achieving this GPA is mathematically impossible as it requires over 100% in your finals.
                 </div>`;
             }
-
-            // Get total marks for finals
             const theoryFinalTotal = parseFloat(document.getElementById('theoryFinalTotal')?.value) || 0;
             const labFinalTotal = state.hasLab ? (parseFloat(document.getElementById('labFinalTotal')?.value) || 0) : 0;
-
-            // Calculate absolute marks needed in finals
             let absTheory = theoryFinalTotal > 0 ? (reqTheory / 100) * theoryFinalTotal : null;
             let absLab = labFinalTotal > 0 ? (reqLab / 100) * labFinalTotal : null;
-
-            // Calculate total internal marks
             let totalInternal = current;
-            let minReqPerc = GPA_SCALE.find(s => s.gpa >= targetGpa)?.min || (targetGpa > 4 ? 101 : 0);
+            let minReqPerc = getMinRequiredPercentage(targetGpa);
             let totalNeeded = minReqPerc;
             let finalsNeeded = totalNeeded - totalInternal;
-
-            // Scenario generation (for simplicity, show 3 combinations)
-            let scenarios = [];
-            if (state.hasLab && theoryFinalTotal > 0 && labFinalTotal > 0) {
-                // Vary theory and lab marks, keep their weighted sum = finalsNeeded
-                const theoryW = (parseFloat(document.getElementById('theoryWeightage')?.value) || 70) / 100;
-                const labW = 1 - theoryW;
-                const theoryFinalWeightAbs = WEIGHTAGES.THEORY.final * theoryW;
-                const labFinalWeightAbs = WEIGHTAGES.LAB.final * labW;
-                const totalFinalWeightAbs = theoryFinalWeightAbs + labFinalWeightAbs;
-                // Try 3 scenarios: (1) equal, (2) theory high/lab low, (3) lab high/theory low
-                let finals = [
-                    [0.5, 0.5],
-                    [0.7, 0.3],
-                    [0.3, 0.7]
-                ];
-                for (let [t, l] of finals) {
-                    let theoryPerc = finalsNeeded / totalFinalWeightAbs * theoryFinalWeightAbs / (theoryFinalWeightAbs + labFinalWeightAbs) * (t * 2);
-                    let labPerc = finalsNeeded / totalFinalWeightAbs * labFinalWeightAbs / (theoryFinalWeightAbs + labFinalWeightAbs) * (l * 2);
-                    let theoryMarks = (theoryPerc / 100) * theoryFinalTotal;
-                    let labMarks = (labPerc / 100) * labFinalTotal;
-                    scenarios.push({
-                        theoryPerc: theoryPerc.toFixed(2),
-                        labPerc: labPerc.toFixed(2),
-                        theoryMarks: theoryMarks.toFixed(2),
-                        labMarks: labMarks.toFixed(2)
-                    });
-                }
-            }
-
             let reqFinalsHTML = '';
-            if (state.hasLab && theoryFinalTotal > 0 && labFinalTotal > 0) {
+            if (state.hasLab && theoryFinalTotal > 0 && labFinalTotal > 0 && combos.length > 0) {
                 reqFinalsHTML += `<div class="mt-2">
                     <p class="font-semibold text-blue-400">Scenarios for Required Final Marks:</p>
                     <ul class="text-left mt-2 space-y-1">
-                        ${scenarios.map((s, i) => `<li>Scenario ${i+1}: Theory Final: <span class='font-bold'>${s.theoryMarks}</span>/${theoryFinalTotal} (${s.theoryPerc}%), Lab Final: <span class='font-bold'>${s.labMarks}</span>/${labFinalTotal} (${s.labPerc}%)</li>`).join('')}
+                        ${combos.map((s, i) => `<li>Scenario ${i+1}: Theory Final: <span class='font-bold'>${s.theoryMarks}</span>/${theoryFinalTotal} (${s.theoryPerc}%), Lab Final: <span class='font-bold'>${s.labMarks}</span>/${labFinalTotal} (${s.labPerc}%)</li>`).join('')}
                     </ul>
                 </div>`;
             } else if (theoryFinalTotal > 0) {
@@ -341,12 +357,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p class="text-2xl font-bold">${absTheory ? absTheory.toFixed(2) : '?'} / ${theoryFinalTotal} (${reqTheory.toFixed(2)}%)</p>
                 </div>`;
             }
-
             let absMarksHTML = '';
             if (finalsNeeded > 0) {
                 absMarksHTML = `<div class="mt-2 text-sm text-gray-300">You need <span class='font-bold'>${finalsNeeded.toFixed(2)}</span> more absolute marks from finals to reach your target GPA (${minReqPerc} - ${totalInternal.toFixed(2)} = <span class='font-bold'>${finalsNeeded.toFixed(2)}</span>).</div>`;
             }
-
             if (reqTheory <= 0 && (!state.hasLab || reqLab <= 0)) {
                  outputContainer.innerHTML = `
                     <div class="p-4 bg-green-900/50 border border-green-700 rounded-lg text-center">
