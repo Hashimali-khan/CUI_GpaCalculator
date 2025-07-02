@@ -332,11 +332,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const renderEstimationOutput = (reqTheory, reqLab, current, targetGpa, combos=[]) => {
             let warning = '';
             if (reqTheory > 100 || (state.hasLab && reqLab > 100)) {
-                warning = `<div class=\"mt-4 p-3 bg-yellow-900/50 border border-yellow-700 rounded-lg text-yellow-300 text-sm">
-                    <span class=\"font-bold\">Warning:</span> Achieving this GPA is mathematically impossible as it requires over 100% in your finals.
+                warning = `<div class="mt-4 p-3 bg-yellow-900/50 border border-yellow-700 rounded-lg text-yellow-300 text-sm">
+                    <span class="font-bold">Warning:</span> Achieving this GPA is mathematically impossible as it requires over 100% in your finals.
                 </div>`;
             }
-            // --- NEW LOGIC: Assume 50 marks for finals if not provided ---
+            // --- Assume 50 marks for finals if not provided ---
             let theoryFinalTotal = parseFloat(document.getElementById('theoryFinalTotal')?.value) || 0;
             let labFinalTotal = state.hasLab ? (parseFloat(document.getElementById('labFinalTotal')?.value) || 0) : 0;
             let assumedFinals = false;
@@ -353,52 +353,47 @@ document.addEventListener('DOMContentLoaded', () => {
             let totalNeeded = minReqPerc;
             let finalsNeeded = totalNeeded - totalInternal;
             let reqFinalsHTML = '';
-            // --- Always show three scenarios for lab mode ---
+            // --- Only show required marks, not scenarios ---
             if (state.hasLab && theoryFinalTotal > 0 && labFinalTotal > 0) {
-                // If combos not provided, generate them
-                if (!combos || combos.length === 0) {
-                    const theoryFinalWeightAbs = WEIGHTAGES.THEORY.final * ((parseFloat(document.getElementById('theoryWeightage')?.value) || 70) / 100);
-                    const labFinalWeightAbs = WEIGHTAGES.LAB.final * (1 - ((parseFloat(document.getElementById('theoryWeightage')?.value) || 70) / 100));
-                    combos = getTheoryLabCombinations(finalsNeeded, theoryFinalWeightAbs, labFinalWeightAbs, theoryFinalTotal, labFinalTotal);
-                }
-                reqFinalsHTML += `<div class=\"mt-2\">
-                    <p class=\"font-semibold text-blue-400\">Scenarios for Required Final Marks:</p>
-                    <ul class=\"text-left mt-2 space-y-1">
-                        ${combos.map((s, i) => `<li>Scenario ${i+1}: Theory Final: <span class='font-bold'>${s.theoryMarks}</span>/${theoryFinalTotal} (${s.theoryPerc}%), Lab Final: <span class='font-bold'>${s.labMarks}</span>/${labFinalTotal} (${s.labPerc}%)</li>`).join('')}
+                reqFinalsHTML += `<div class="mt-2">
+                    <p class="font-semibold text-blue-400">Required in Finals:</p>
+                    <ul class="text-left mt-2 space-y-1">
+                        <li>Theory Final: <span class='font-bold'>${absTheory ? absTheory.toFixed(2) : '?'} / ${theoryFinalTotal}</span> (${reqTheory.toFixed(2)}%)</li>
+                        <li>Lab Final: <span class='font-bold'>${absLab ? absLab.toFixed(2) : '?'} / ${labFinalTotal}</span> (${reqLab.toFixed(2)}%)</li>
                     </ul>
                 </div>`;
             } else if (theoryFinalTotal > 0) {
-                reqFinalsHTML += `<div class=\"mt-2\">
-                    <p class=\"font-semibold text-blue-400\">Required in Theory Final:</p>
-                    <p class=\"text-2xl font-bold\">${absTheory ? absTheory.toFixed(2) : '?'} / ${theoryFinalTotal} (${reqTheory.toFixed(2)}%)</p>
+                reqFinalsHTML += `<div class="mt-2">
+                    <p class="font-semibold text-blue-400">Required in Theory Final:</p>
+                    <p class="text-2xl font-bold">${absTheory ? absTheory.toFixed(2) : '?'} / ${theoryFinalTotal} (${reqTheory.toFixed(2)}%)</p>
                 </div>`;
             }
             let absMarksHTML = '';
             if (finalsNeeded > 0) {
-                absMarksHTML = `<div class=\"mt-2 text-sm text-gray-300\">You need <span class='font-bold'>${finalsNeeded.toFixed(2)}</span> more absolute marks from finals to reach your target GPA (${minReqPerc} - ${totalInternal.toFixed(2)} = <span class='font-bold'>${finalsNeeded.toFixed(2)}</span>).</div>`;
+                absMarksHTML = `<div class="mt-2 text-sm text-gray-300">You need <span class='font-bold'>${finalsNeeded.toFixed(2)}</span> more absolute marks from finals to reach your target GPA (${minReqPerc} - ${totalInternal.toFixed(2)} = <span class='font-bold'>${finalsNeeded.toFixed(2)}</span>).</div>`;
             }
             let assumedMsg = '';
             if (assumedFinals) {
-                assumedMsg = `<div class=\"mt-2 text-xs text-yellow-300\">Assumed total marks for Theory and Lab finals as 50 each for calculation.</div>`;
+                assumedMsg = `<div class="mt-2 text-xs text-yellow-300">Assumed total marks for Theory and Lab finals as 50 each for calculation.</div>`;
             }
             if (reqTheory <= 0 && (!state.hasLab || reqLab <= 0)) {
                  outputContainer.innerHTML = `
-                    <div class=\"p-4 bg-green-900/50 border border-green-700 rounded-lg text-center">
-                        <p class=\"text-xl font-bold text-green-400\">Congratulations!</p>
-                        <p class=\"text-green-300\">You have already secured a GPA of at least ${targetGpa.toFixed(2)} with your internal marks of ${current.toFixed(2)}%.</p>
+                    <div class="p-4 bg-green-900/50 border border-green-700 rounded-lg text-center">
+                        <p class="text-xl font-bold text-green-400">Congratulations!</p>
+                        <p class="text-green-300">You have already secured a GPA of at least ${targetGpa.toFixed(2)} with your internal marks of ${current.toFixed(2)}%.</p>
                         ${assumedMsg}
                     </div>
                  `;
             } else {
                  outputContainer.innerHTML = `
-                    <div class=\"p-4 bg-blue-900/50 border border-blue-700 rounded-lg text-center">
-                        <p class=\"text-lg font-semibold text-blue-300\">To get a ${targetGpa.toFixed(2)} GPA:</p>
-                        <p class=\"text-sm text-blue-400 mb-2\">(See scenarios below for required marks in finals)</p>
+                    <div class="p-4 bg-blue-900/50 border border-blue-700 rounded-lg text-center">
+                        <p class="text-lg font-semibold text-blue-300">To get a ${targetGpa.toFixed(2)} GPA:</p>
+                        <p class="text-sm text-blue-400 mb-2">(See required marks in finals below)</p>
                         ${absMarksHTML}
                         ${reqFinalsHTML}
                         ${warning}
                         ${assumedMsg}
-                        <p class=\"mt-4 text-xs text-gray-400\">Remember, you must also pass each component (Theory/Lab) with at least 50% to avoid failing the course.</p>
+                        <p class="mt-4 text-xs text-gray-400">Remember, you must also pass each component (Theory/Lab) with at least 50% to avoid failing the course.</p>
                     </div>
                 `;
             }
