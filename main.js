@@ -240,32 +240,33 @@ document.addEventListener('DOMContentLoaded', () => {
             let totalFinalWeightAbs = theoryFinalWeightAbs + labFinalWeightAbs;
             // 1. Equal split
             let t1 = finalsNeeded / totalFinalWeightAbs * 100;
-            combos.push({
-                theoryPerc: t1,
-                labPerc: t1
-            });
+            let l1 = t1;
             // 2. Theory high, lab low
             let t2 = Math.min(100, t1 + 10);
             let l2 = (finalsNeeded - theoryFinalWeightAbs * t2 / 100) / labFinalWeightAbs * 100;
-            combos.push({
-                theoryPerc: t2,
-                labPerc: l2
-            });
             // 3. Lab high, theory low
             let l3 = Math.min(100, t1 + 10);
             let t3 = (finalsNeeded - labFinalWeightAbs * l3 / 100) / theoryFinalWeightAbs * 100;
+            // Clamp all values to [0, 100] for display
             combos.push({
-                theoryPerc: t3,
-                labPerc: l3
+                theoryPerc: Math.max(0, Math.min(100, t1)),
+                labPerc: Math.max(0, Math.min(100, l1))
             });
-            // Filter out impossible combos (over 100% or under 0%)
-            return combos.filter(c => c.theoryPerc >= 0 && c.theoryPerc <= 100 && c.labPerc >= 0 && c.labPerc <= 100)
-                .map(c => ({
-                    theoryPerc: c.theoryPerc.toFixed(2),
-                    labPerc: c.labPerc.toFixed(2),
-                    theoryMarks: theoryFinalTotal ? (c.theoryPerc / 100 * theoryFinalTotal).toFixed(2) : '?',
-                    labMarks: labFinalTotal ? (c.labPerc / 100 * labFinalTotal).toFixed(2) : '?'
-                }));
+            combos.push({
+                theoryPerc: Math.max(0, Math.min(100, t2)),
+                labPerc: Math.max(0, Math.min(100, l2))
+            });
+            combos.push({
+                theoryPerc: Math.max(0, Math.min(100, t3)),
+                labPerc: Math.max(0, Math.min(100, l3))
+            });
+            // Always return three scenarios, even if some are at the bounds
+            return combos.map(c => ({
+                theoryPerc: c.theoryPerc.toFixed(2),
+                labPerc: c.labPerc.toFixed(2),
+                theoryMarks: theoryFinalTotal ? (c.theoryPerc / 100 * theoryFinalTotal).toFixed(2) : '?',
+                labMarks: labFinalTotal ? (c.labPerc / 100 * labFinalTotal).toFixed(2) : '?'
+            }));
         }
 
         const calculatePreFinalsEstimation = () => {
@@ -335,8 +336,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="font-bold">Warning:</span> Achieving this GPA is mathematically impossible as it requires over 100% in your finals.
                 </div>`;
             }
-            const theoryFinalTotal = parseFloat(document.getElementById('theoryFinalTotal')?.value) || 0;
-            const labFinalTotal = state.hasLab ? (parseFloat(document.getElementById('labFinalTotal')?.value) || 0) : 0;
+            // --- NEW LOGIC: Assume 50 marks for finals if not provided ---
+            let theoryFinalTotal = parseFloat(document.getElementById('theoryFinalTotal')?.value) || 0;
+            let labFinalTotal = state.hasLab ? (parseFloat(document.getElementById('labFinalTotal')?.value) || 0) : 0;
+            let assumedFinals = false;
+            if (state.hasLab) {
+                if (!theoryFinalTotal) { theoryFinalTotal = 50; assumedFinals = true; }
+                if (!labFinalTotal) { labFinalTotal = 50; assumedFinals = true; }
+            } else {
+                if (!theoryFinalTotal) { theoryFinalTotal = 50; assumedFinals = true; }
+            }
             let absTheory = theoryFinalTotal > 0 ? (reqTheory / 100) * theoryFinalTotal : null;
             let absLab = labFinalTotal > 0 ? (reqLab / 100) * labFinalTotal : null;
             let totalInternal = current;
@@ -344,11 +353,12 @@ document.addEventListener('DOMContentLoaded', () => {
             let totalNeeded = minReqPerc;
             let finalsNeeded = totalNeeded - totalInternal;
             let reqFinalsHTML = '';
-            if (state.hasLab && theoryFinalTotal > 0 && labFinalTotal > 0 && combos.length > 0) {
+            if (state.hasLab && theoryFinalTotal > 0 && labFinalTotal > 0) {
                 reqFinalsHTML += `<div class="mt-2">
-                    <p class="font-semibold text-blue-400">Scenarios for Required Final Marks:</p>
+                    <p class="font-semibold text-blue-400">Required in Finals:</p>
                     <ul class="text-left mt-2 space-y-1">
-                        ${combos.map((s, i) => `<li>Scenario ${i+1}: Theory Final: <span class='font-bold'>${s.theoryMarks}</span>/${theoryFinalTotal} (${s.theoryPerc}%), Lab Final: <span class='font-bold'>${s.labMarks}</span>/${labFinalTotal} (${s.labPerc}%)</li>`).join('')}
+                        <li>Theory Final: <span class='font-bold'>${absTheory ? absTheory.toFixed(2) : '?'} / ${theoryFinalTotal}</span> (${reqTheory.toFixed(2)}%)</li>
+                        <li>Lab Final: <span class='font-bold'>${absLab ? absLab.toFixed(2) : '?'} / ${labFinalTotal}</span> (${reqLab.toFixed(2)}%)</li>
                     </ul>
                 </div>`;
             } else if (theoryFinalTotal > 0) {
@@ -361,21 +371,27 @@ document.addEventListener('DOMContentLoaded', () => {
             if (finalsNeeded > 0) {
                 absMarksHTML = `<div class="mt-2 text-sm text-gray-300">You need <span class='font-bold'>${finalsNeeded.toFixed(2)}</span> more absolute marks from finals to reach your target GPA (${minReqPerc} - ${totalInternal.toFixed(2)} = <span class='font-bold'>${finalsNeeded.toFixed(2)}</span>).</div>`;
             }
+            let assumedMsg = '';
+            if (assumedFinals) {
+                assumedMsg = `<div class="mt-2 text-xs text-yellow-300">Assumed total marks for Theory and Lab finals as 50 each for calculation.</div>`;
+            }
             if (reqTheory <= 0 && (!state.hasLab || reqLab <= 0)) {
                  outputContainer.innerHTML = `
                     <div class="p-4 bg-green-900/50 border border-green-700 rounded-lg text-center">
                         <p class="text-xl font-bold text-green-400">Congratulations!</p>
                         <p class="text-green-300">You have already secured a GPA of at least ${targetGpa.toFixed(2)} with your internal marks of ${current.toFixed(2)}%.</p>
+                        ${assumedMsg}
                     </div>
                  `;
             } else {
                  outputContainer.innerHTML = `
                     <div class="p-4 bg-blue-900/50 border border-blue-700 rounded-lg text-center">
                         <p class="text-lg font-semibold text-blue-300">To get a ${targetGpa.toFixed(2)} GPA:</p>
-                        <p class="text-sm text-blue-400 mb-2">(See scenarios below for required marks in finals)</p>
+                        <p class="text-sm text-blue-400 mb-2">(See required marks in finals below)</p>
                         ${absMarksHTML}
                         ${reqFinalsHTML}
                         ${warning}
+                        ${assumedMsg}
                         <p class="mt-4 text-xs text-gray-400">Remember, you must also pass each component (Theory/Lab) with at least 50% to avoid failing the course.</p>
                     </div>
                 `;
